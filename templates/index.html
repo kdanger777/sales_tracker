@@ -1,0 +1,776 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sales Tracker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        .timer-display {
+            font-size: 3rem;
+            font-weight: bold;
+            text-align: center;
+        }
+        .lead-counter {
+            font-size: 2.5rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1 class="text-center mb-4">Door-to-Door Sales Tracker</h1>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Shift Timer</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="timer-display" id="timer">00:00:00</div>
+                        <div class="d-grid gap-2 mt-3">
+                            <button id="start-shift-btn" class="btn btn-success">Start Shift</button>
+                            <button id="end-shift-btn" class="btn btn-danger" style="display: none;">End Shift</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Lead Counter</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="lead-counter" id="lead-count">0</div>
+                        <div class="d-grid gap-2 mt-3">
+                            <button id="log-lead-btn" class="btn btn-primary btn-lg" disabled>Log New Lead</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Stats & Analytics</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Total Leads</h5>
+                                        <p class="card-text" id="total-leads">0</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Avg. Leads/Shift</h5>
+                                        <p class="card-text" id="avg-leads">0</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Avg. Time/Lead</h5>
+                                        <p class="card-text" id="avg-time">0 min</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card text-center">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Current Pace</h5>
+                                        <p class="card-text" id="current-pace">0 min/lead</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-body text-center">
+                                        <h5>Daily Goal Progress</h5>
+                                        <div id="goal-gauge" style="height: 200px;"></div>
+                                        <div class="progress mt-2">
+                                            <div id="goal-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                                 role="progressbar" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-body text-center">
+                                        <h5>Efficiency Meter</h5>
+                                        <div id="efficiency-gauge" style="height: 200px;"></div>
+                                        <p class="text-muted">vs. your personal best</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-body text-center">
+                                        <h5>Streak Counter</h5>
+                                        <div class="display-1 fw-bold text-primary" id="current-streak">0</div>
+                                        <p>consecutive days with leads</p>
+                                        <p class="text-muted">Best: <span id="best-streak">0</span> days</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Smart Insights moved to here, between Stats & Analytics and Lead Time Distribution -->
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h3>Smart Insights</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="card h-100 border-success">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-success">✓ Strengths</h5>
+                                        <ul class="list-group list-group-flush" id="strength-insights">
+                                            <li class="list-group-item">Your Thursday performance is 43% above average</li>
+                                            <li class="list-group-item">You're most effective from 2-4pm</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card h-100 border-danger">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-danger">⚠ Opportunities</h5>
+                                        <ul class="list-group list-group-flush" id="opportunity-insights">
+                                            <li class="list-group-item">Monday productivity is 27% below your average</li>
+                                            <li class="list-group-item">Morning hours show lower conversion rates</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card h-100 border-info">
+                                    <div class="card-body">
+                                        <h5 class="card-title text-info">💡 Recommendations</h5>
+                                        <ul class="list-group list-group-flush" id="recommendations">
+                                            <li class="list-group-item">Try starting your shift at 1pm on Mondays</li>
+                                            <li class="list-group-item">Schedule more time for Thursdays when you perform best</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Lead Time Distribution</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="time-chart" style="height: 400px;"></div>
+                        <div id="day-chart" class="chart"></div>
+                        <div id="trend-chart" class="chart"></div>
+                        <div id="comparison-chart" class="chart"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add this to your Stats & Analytics section -->
+        <div class="col-md-12 mt-4">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Lead Calendar Heatmap</h3>
+                </div>
+                <div class="card-body">
+                    <div id="calendar-heatmap" style="height: 250px;"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Global variables
+        let timer;
+        let seconds = 0;
+        let activeShiftId = null;
+        let leads = [];
+        
+        // DOM elements
+        const timerDisplay = document.getElementById('timer');
+        const leadCount = document.getElementById('lead-count');
+        const startShiftBtn = document.getElementById('start-shift-btn');
+        const endShiftBtn = document.getElementById('end-shift-btn');
+        const logLeadBtn = document.getElementById('log-lead-btn');
+        
+        // Add near the top of the script section
+        function debugState() {
+            console.log("Current state:", {
+                activeShiftId,
+                secondsElapsed: seconds,
+                leadsCount: leads.length
+            });
+        }
+
+        // Timer functions
+        function startTimer() {
+            timer = setInterval(() => {
+                seconds++;
+                updateTimerDisplay();
+                updateCurrentPace();
+            }, 1000);
+        }
+        
+        function stopTimer() {
+            clearInterval(timer);
+        }
+        
+        function updateTimerDisplay() {
+            // Convert to integers to remove decimals
+            const totalSeconds = Math.floor(seconds);
+            
+            // Calculate hours, minutes, seconds
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const secs = Math.floor(totalSeconds % 60);
+            
+            // Format with leading zeros for better readability
+            const formattedTime = [
+                hours.toString().padStart(2, '0'),
+                minutes.toString().padStart(2, '0'),
+                secs.toString().padStart(2, '0')
+            ].join(':');
+            
+            timerDisplay.textContent = formattedTime;
+        }
+        
+        // API functions
+        // Modify startShift function to include debugging
+        async function startShift() {
+            try {
+                console.log("Starting shift...");
+                const response = await fetch('/api/shift/start', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+                
+                const data = await response.json();
+                console.log("API response:", data);
+                
+                activeShiftId = data.shift_id;
+                console.log("Set activeShiftId to:", activeShiftId);
+                
+                // Update UI
+                startShiftBtn.style.display = 'none';
+                endShiftBtn.style.display = 'block';
+                logLeadBtn.disabled = false;
+                
+                // Start timer
+                startTimer();
+                debugState();
+                
+            } catch (error) {
+                console.error('Error starting shift:', error);
+                alert('Failed to start shift');
+            }
+        }
+        
+        async function endShift() {
+            try {
+                if (!activeShiftId) {
+                    alert('No active shift to end');
+                    return;
+                }
+                
+                const response = await fetch('/api/shift/end', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ shift_id: activeShiftId })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Here's the fix - use the actual leads array length
+                    const leadsCounted = leads.length;
+                    
+                    // Stop timer and update UI
+                    stopTimer();
+                    activeShiftId = null;
+                    
+                    // Update UI elements
+                    startShiftBtn.style.display = 'block';
+                    endShiftBtn.style.display = 'none';
+                    logLeadBtn.disabled = true;
+                    
+                    // Show message with correct lead count
+                    alert(`Shift ended successfully! You logged ${leadsCounted} leads during this shift.`);
+                    
+                    // Reset leads array after displaying count
+                    leads = [];
+                    
+                    // Reset lead count display to 0
+                    document.getElementById('lead-count').textContent = "0";
+                    
+                    // Reset timer display
+                    seconds = 0;
+                    updateTimerDisplay();
+                    
+                    // Refresh stats
+                    loadStats();
+                } else {
+                    alert(`Failed to end shift: ${data.error}`);
+                }
+            } catch (error) {
+                console.error('Error ending shift:', error);
+                alert('Failed to end shift');
+            }
+        }
+        
+        async function logLead() {
+            try {
+                if (!activeShiftId) {
+                    alert('No active shift');
+                    return;
+                }
+                
+                // Check if notes field exists, otherwise use empty string
+                const notesElement = document.getElementById('lead-notes');
+                const notes = notesElement ? notesElement.value : '';
+                
+                const response = await fetch('/api/lead/add', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        shift_id: activeShiftId,
+                        notes: notes
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Add lead to local array
+                    leads.push(data);
+                    
+                    // Update lead counter
+                    leadCount.textContent = leads.length;
+                    
+                    // Clear notes field if it exists
+                    if (notesElement) {
+                        notesElement.value = '';
+                    }
+                    
+                    // Update pace
+                    updateCurrentPace();
+                } else {
+                    alert(`Failed to log lead: ${data.error}`);
+                }
+            } catch (error) {
+                console.error('Error logging lead:', error);
+                alert('Failed to log lead');
+            }
+        }
+        
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+                
+                console.log("Stats data:", data);  // Add this line
+                
+                // Update stats display
+                document.getElementById('total-leads').textContent = data.total_leads;
+                document.getElementById('avg-leads').textContent = data.avg_leads_per_shift.toFixed(1);
+                
+                // Improved average time display
+                document.getElementById('avg-time').textContent = formatTimeDisplay(data.avg_time_per_lead);
+                
+                // Create time distribution chart
+                createTimeChart(data.time_distribution);
+                
+                // Create additional charts if we have shift data
+                if (data.shifts) {
+                    createDayOfWeekChart(data.shifts);
+                    createProductivityTrendChart(data.shifts);
+                    
+                    // Calculate today's leads for comparison chart
+                    const today = new Date().toDateString();
+                    const todayLeads = data.shifts
+                        .filter(s => new Date(s.start_time).toDateString() === today)
+                        .reduce((sum, s) => sum + s.lead_count, 0);
+                        
+                    createComparisonChart(todayLeads, data.avg_leads_per_shift);
+                    
+                    // Create calendar heatmap
+                    createCalendarHeatmap(data.shifts);
+                    
+                    // Calculate data for gauge charts
+                    const currentShift = data.shifts.find(s => s.id === activeShiftId);
+                    const currentEfficiency = currentShift ? 
+                        (currentShift.lead_count / (currentShift.duration / 3600)) : 0;
+                    
+                    // Find best efficiency from historical data
+                    const efficiencies = data.shifts.map(s => 
+                        s.duration > 0 ? s.lead_count / (s.duration / 3600) : 0);
+                    const bestEfficiency = Math.max(...efficiencies, 1);
+                    
+                    // Calculate streak data
+                    const streakData = calculateStreakData(data.shifts);
+                    
+                    // Add gauge charts with today's leads and efficiency data
+                    createGaugeCharts({
+                        today_leads: todayLeads,
+                        current_efficiency: currentEfficiency,
+                        best_efficiency: bestEfficiency,
+                        current_streak: streakData.currentStreak,
+                        best_streak: streakData.bestStreak
+                    });
+                    
+                    // Update streak counter in the UI
+                    document.getElementById('current-streak').textContent = streakData.currentStreak;
+                    document.getElementById('best-streak').textContent = streakData.bestStreak;
+                }
+                
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+        
+        function updateCurrentPace() {
+            if (leads.length > 0) {
+                const minutesPerLead = (seconds / 60) / leads.length;
+                document.getElementById('current-pace').textContent = 
+                    `${minutesPerLead.toFixed(1)} min/lead`;
+            }
+        }
+        
+        function createTimeChart(timeData) {
+            const hours = Object.keys(timeData);
+            const counts = Object.values(timeData);
+            
+            const data = [{
+                x: hours.map(h => `${h}:00`),
+                y: counts,
+                type: 'bar'
+            }];
+            
+            const layout = {
+                title: 'Lead Distribution by Hour',
+                xaxis: { title: 'Time of Day' },
+                yaxis: { title: 'Number of Leads' }
+            };
+            
+            Plotly.newPlot('time-chart', data, layout);
+        }
+
+        function createDayOfWeekChart(shifts) {
+            // Group leads by day of week
+            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const dayCount = Array(7).fill(0);
+            
+            shifts.forEach(shift => {
+                const date = new Date(shift.start_time);
+                const dayOfWeek = date.getDay();
+                dayCount[dayOfWeek] += shift.lead_count;
+            });
+            
+            const data = [{
+                x: dayNames,
+                y: dayCount,
+                type: 'bar',
+                marker: {color: '#4C78A8'}
+            }];
+            
+            const layout = {
+                title: 'Leads by Day of Week',
+                xaxis: { title: 'Day' },
+                yaxis: { title: 'Number of Leads' },
+                height: 400
+            };
+            
+            Plotly.newPlot('day-chart', data, layout);
+        }
+
+        function createProductivityTrendChart(shifts) {
+            // Sort shifts by date
+            const sortedShifts = [...shifts].sort((a, b) => 
+                new Date(a.start_time) - new Date(b.start_time));
+            
+            const dates = sortedShifts.map(shift => new Date(shift.start_time).toLocaleDateString());
+            const leadsPerHour = sortedShifts.map(shift => {
+                const durationHours = shift.duration / 3600;
+                return durationHours > 0 ? shift.lead_count / durationHours : 0;
+            });
+            
+            const data = [{
+                x: dates,
+                y: leadsPerHour,
+                type: 'scatter',
+                mode: 'lines+markers',
+                line: {shape: 'spline', smoothing: 1.3}
+            }];
+            
+            const layout = {
+                title: 'Productivity Trend (Leads per Hour)',
+                xaxis: { title: 'Date' },
+                yaxis: { title: 'Leads per Hour' },
+                height: 400
+            };
+            
+            Plotly.newPlot('trend-chart', data, layout);
+        }
+
+        function createComparisonChart(todayLeads, avgLeads) {
+            const data = [{
+                x: ['Today', 'Average'],
+                y: [todayLeads, avgLeads],
+                type: 'bar',
+                marker: {
+                    color: ['#72B7B2', '#54A24B']
+                }
+            }];
+            
+            const layout = {
+                title: 'Today vs Average Performance',
+                yaxis: { title: 'Number of Leads' },
+                height: 400
+            };
+            
+            Plotly.newPlot('comparison-chart', data, layout);
+        }
+
+        function formatTimeDisplay(seconds) {
+            if (!seconds || isNaN(seconds)) return "0 min";
+            
+            // Format based on magnitude
+            if (seconds < 60) {
+                return `${Math.round(seconds)} sec`;
+            } else if (seconds < 3600) {
+                return `${Math.round(seconds/60)} min`;
+            } else {
+                const hrs = Math.floor(seconds/3600);
+                const mins = Math.round((seconds % 3600) / 60);
+                return `${hrs}h ${mins}m`;
+            }
+        }
+        
+        // Add after the shift functions
+        async function checkActiveShift() {
+            try {
+                const response = await fetch('/api/shift/active');
+                const data = await response.json();
+                
+                if (data.active_shift) {
+                    activeShiftId = data.active_shift.id;
+                    seconds = data.active_shift.elapsed_seconds || 0;
+                    
+                    // Update UI to reflect active shift
+                    startShiftBtn.style.display = 'none';
+                    endShiftBtn.style.display = 'block';
+                    logLeadBtn.disabled = false;
+                    
+                    // Start timer
+                    startTimer();
+                    updateTimerDisplay();
+                    
+                    // Load any existing leads for this shift
+                    if (data.active_shift.leads) {
+                        leads = data.active_shift.leads;
+                        leadCount.textContent = leads.length;
+                        updateCurrentPace();
+                    }
+                }
+            } catch (error) {
+                console.error("Error checking for active shift:", error);
+            }
+        }
+
+        // Add to your script section
+        function createCalendarHeatmap(shifts) {
+            // Group by date and count leads
+            const dateData = {};
+            shifts.forEach(shift => {
+                const date = new Date(shift.start_time).toISOString().split('T')[0];
+                dateData[date] = (dateData[date] || 0) + shift.lead_count;
+            });
+            
+            // Convert to format needed by plotly
+            const dates = Object.keys(dateData);
+            const values = Object.values(dateData);
+            
+            // Calculate week and day for heatmap
+            const weeks = [];
+            const days = [];
+            const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            
+            dates.forEach(date => {
+                const d = new Date(date);
+                const weekNum = Math.floor((d - new Date(d.getFullYear(), 0, 1)) / (7 * 24 * 60 * 60 * 1000));
+                weeks.push(weekNum);
+                days.push(dayNames[d.getDay() === 0 ? 6 : d.getDay() - 1]);
+            });
+            
+            const data = [{
+                z: [values],
+                x: dates,
+                y: ['Leads'],
+                type: 'heatmap',
+                colorscale: 'Greens',
+                showscale: true
+            }];
+            
+            const layout = {
+                title: 'Lead Generation Calendar View',
+                margin: { l: 50, r: 25, b: 25, t: 50, pad: 4 }
+            };
+            
+            Plotly.newPlot('calendar-heatmap', data, layout);
+        }
+
+        // Updated createGaugeCharts function with 15 as the daily goal
+        function createGaugeCharts(data) {
+            // Daily goal gauge with 15 leads goal
+            const dailyGoal = 15;
+            const todayLeads = data.today_leads || 0;
+            const percentage = Math.min((todayLeads / dailyGoal) * 100, 100);
+            
+            // Update progress bar
+            document.getElementById('goal-progress-bar').style.width = `${percentage}%`;
+            document.getElementById('goal-progress-bar').textContent = `${todayLeads}/${dailyGoal}`;
+            
+            // Create gauge chart
+            const gaugeData = [{
+                type: "indicator",
+                mode: "gauge+number",
+                value: todayLeads,
+                title: { text: "Daily Leads" },
+                gauge: {
+                    axis: { range: [null, dailyGoal], tickwidth: 1 },
+                    bar: { color: "#1f77b4" },
+                    steps: [
+                        { range: [0, dailyGoal/3], color: "#f8f9fa" },
+                        { range: [dailyGoal/3, dailyGoal*2/3], color: "#e9ecef" },
+                        { range: [dailyGoal*2/3, dailyGoal], color: "#dee2e6" }
+                    ],
+                    threshold: {
+                        line: { color: "green", width: 4 },
+                        thickness: 0.75,
+                        value: dailyGoal
+                    }
+                }
+            }];
+            
+            const layout = { width: 300, height: 200, margin: { t: 25, b: 25, l: 25, r: 25 } };
+            Plotly.newPlot('goal-gauge', gaugeData, layout);
+            
+            // Efficiency gauge
+            const currentEfficiency = data.current_efficiency || 0; // Leads per hour for current shift
+            const bestEfficiency = data.best_efficiency || 10; // Historical best leads per hour
+            
+            const efficiencyData = [{
+                type: "indicator",
+                mode: "gauge+number+delta",
+                value: currentEfficiency,
+                title: { text: "Leads/Hour" },
+                delta: { reference: bestEfficiency, increasing: { color: "green" } },
+                gauge: {
+                    axis: { range: [null, Math.max(bestEfficiency, currentEfficiency)], tickwidth: 1 },
+                    bar: { color: "#2ca02c" },
+                    steps: [
+                        { range: [0, bestEfficiency/3], color: "#e6f5e6" },
+                        { range: [bestEfficiency/3, bestEfficiency*2/3], color: "#c6e6c6" },
+                        { range: [bestEfficiency*2/3, bestEfficiency], color: "#a6d7a6" }
+                    ],
+                    threshold: {
+                        line: { color: "red", width: 4 },
+                        thickness: 0.75,
+                        value: bestEfficiency
+                    }
+                }
+            }];
+            
+            const efficiencyLayout = { width: 300, height: 200, margin: { t: 25, b: 25, l: 25, r: 25 } };
+            Plotly.newPlot('efficiency-gauge', efficiencyData, efficiencyLayout);
+        }
+
+        // Helper function to calculate streak data
+        function calculateStreakData(shifts) {
+            if (!shifts || shifts.length === 0) return { currentStreak: 0, bestStreak: 0 };
+            
+            // Sort shifts by date
+            const sortedShifts = [...shifts].sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+            
+            // Group shifts by date
+            const shiftsByDate = {};
+            sortedShifts.forEach(shift => {
+                const dateStr = new Date(shift.start_time).toISOString().split('T')[0];
+                if (!shiftsByDate[dateStr]) shiftsByDate[dateStr] = [];
+                shiftsByDate[dateStr].push(shift);
+            });
+            
+            // Calculate streaks
+            const dates = Object.keys(shiftsByDate).sort();
+            let currentStreak = 0;
+            let bestStreak = 0;
+            let previousDate = null;
+            
+            dates.forEach(date => {
+                if (previousDate) {
+                    const diff = (new Date(date) - new Date(previousDate)) / (1000 * 60 * 60 * 24);
+                    if (diff === 1) {
+                        currentStreak++;
+                    } else {
+                        currentStreak = 1;
+                    }
+                } else {
+                    currentStreak = 1;
+                }
+                if (currentStreak > bestStreak) {
+                    bestStreak = currentStreak;
+                }
+                previousDate = date;
+            });
+            
+            return { currentStreak, bestStreak };
+        }
+
+        // Event listeners
+        startShiftBtn.addEventListener('click', startShift);
+        endShiftBtn.addEventListener('click', endShift);
+        logLeadBtn.addEventListener('click', logLead);
+        
+        // filepath: /Users/kingston/repos/sales_tracker/templates/index.html
+        // Modify the Init section at the end of your script
+        // Init
+        document.addEventListener('DOMContentLoaded', function() {
+            checkActiveShift();
+            loadStats();
+        });
+    </script>
+</body>
+</html>
