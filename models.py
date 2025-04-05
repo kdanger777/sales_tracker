@@ -1,5 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timezone
+import logging
+import os
 
 db = SQLAlchemy()
 
@@ -11,13 +13,9 @@ class Shift(db.Model):
     
     def duration(self):
         if self.end_time:
-            end = ensure_timezone_aware(self.end_time)
-            start = ensure_timezone_aware(self.start_time)
-            return (end - start).total_seconds()
-        
-        # For current duration of ongoing shift
-        start = ensure_timezone_aware(self.start_time)
-        return (datetime.now(timezone.utc) - start).total_seconds()
+            return (self.end_time - self.start_time).total_seconds()
+        else:
+            return (datetime.now(timezone.utc) - self.start_time).total_seconds()
     
 class Lead(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -30,3 +28,16 @@ def ensure_timezone_aware(dt):
     if dt is None:
         return None
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+# Add a function to check database connectivity
+def check_db_connection(app):
+    """Utility function to verify database connectivity"""
+    try:
+        with app.app_context():
+            # Try a simple query
+            Shift.query.first()
+            app.logger.info("Database connection successful")
+            return True
+    except Exception as e:
+        app.logger.error(f"Database connection failed: {str(e)}")
+        return False
