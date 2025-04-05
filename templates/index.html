@@ -454,6 +454,9 @@
                     // Update streak counter in the UI
                     document.getElementById('current-streak').textContent = streakData.currentStreak;
                     document.getElementById('best-streak').textContent = streakData.bestStreak;
+                    
+                    // Generate smart insights
+                    generateSmartInsights(data.shifts);
                 }
                 
             } catch (error) {
@@ -757,6 +760,150 @@
             });
             
             return { currentStreak, bestStreak };
+        }
+
+        // Add this function after calculateStreakData
+        function generateSmartInsights(shifts) {
+            if (!shifts || shifts.length < 3) {
+                return; // Not enough data for meaningful insights
+            }
+            
+            // Clear existing insights
+            document.getElementById('strength-insights').innerHTML = '';
+            document.getElementById('opportunity-insights').innerHTML = '';
+            document.getElementById('recommendations').innerHTML = '';
+            
+            // Calculate day of week performance
+            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const dayEfficiency = Array(7).fill(0);
+            const dayCount = Array(7).fill(0);
+            
+            // Calculate hour of day performance
+            const hourEfficiency = Array(24).fill(0);
+            const hourCount = Array(24).fill(0);
+            
+            // Process all shifts
+            shifts.forEach(shift => {
+                const startDate = new Date(shift.start_time);
+                const dayOfWeek = startDate.getDay();
+                const hourOfDay = startDate.getHours();
+                
+                // Calculate efficiency (leads per hour)
+                const durationHours = shift.duration / 3600;
+                if (durationHours > 0) {
+                    const efficiency = shift.lead_count / durationHours;
+                    
+                    // Add to day stats
+                    dayEfficiency[dayOfWeek] += efficiency;
+                    dayCount[dayOfWeek]++;
+                    
+                    // Add to hour stats
+                    hourEfficiency[hourOfDay] += efficiency;
+                    hourCount[hourOfDay]++;
+                }
+            });
+            
+            // Calculate averages
+            const avgDayEfficiency = dayEfficiency.map((total, i) => 
+                dayCount[i] > 0 ? total / dayCount[i] : 0);
+            
+            const avgHourEfficiency = hourEfficiency.map((total, i) => 
+                hourCount[i] > 0 ? total / hourCount[i] : 0);
+            
+            // Calculate overall average
+            const overallAvg = avgDayEfficiency.reduce((sum, val, i) => 
+                sum + (val * dayCount[i]), 0) / avgDayEfficiency.reduce((sum, _, i) => 
+                sum + dayCount[i], 0);
+            
+            // Find strengths (days/hours above average)
+            const strengthDays = [];
+            avgDayEfficiency.forEach((eff, i) => {
+                if (eff > overallAvg * 1.15 && dayCount[i] >= 2) { // 15% above average
+                    const percent = Math.round((eff / overallAvg - 1) * 100);
+                    strengthDays.push({day: dayNames[i], percent});
+                }
+            });
+            
+            // Find best hours
+            const activeHours = avgHourEfficiency.map((eff, hour) => ({hour, eff}))
+                .filter(h => hourCount[h.hour] >= 2)
+                .sort((a, b) => b.eff - a.eff);
+            
+            // Find opportunities (days/hours below average)
+            const opportunityDays = [];
+            avgDayEfficiency.forEach((eff, i) => {
+                if (eff < overallAvg * 0.85 && dayCount[i] >= 2) { // 15% below average
+                    const percent = Math.round((1 - eff / overallAvg) * 100);
+                    opportunityDays.push({day: dayNames[i], percent});
+                }
+            });
+            
+            // Add insights to DOM
+            const strengthList = document.getElementById('strength-insights');
+            const opportunityList = document.getElementById('opportunity-insights');
+            const recommendationList = document.getElementById('recommendations');
+            
+            // Add strength insights
+            strengthDays.forEach(({day, percent}) => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                li.textContent = `Your ${day} performance is ${percent}% above average`;
+                strengthList.appendChild(li);
+            });
+            
+            if (activeHours.length >= 2) {
+                const bestHour = activeHours[0];
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                li.textContent = `You're most effective around ${bestHour.hour}:00 - ${bestHour.hour+1}:00`;
+                strengthList.appendChild(li);
+            }
+            
+            // Add opportunity insights
+            opportunityDays.forEach(({day, percent}) => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                li.textContent = `${day} productivity is ${percent}% below your average`;
+                opportunityList.appendChild(li);
+            });
+            
+            // Add some generic items if we don't have enough data
+            if (strengthList.children.length === 0) {
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                li.textContent = 'Keep collecting data to see your strengths';
+                strengthList.appendChild(li);
+            }
+            
+            if (opportunityList.children.length === 0) {
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                li.textContent = 'Keep collecting data to see improvement opportunities';
+                opportunityList.appendChild(li);
+            }
+            
+            // Add recommendations
+            if (strengthDays.length > 0) {
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                li.textContent = `Schedule more time for ${strengthDays[0].day}s when you perform best`;
+                recommendationList.appendChild(li);
+            }
+            
+            if (opportunityDays.length > 0) {
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                li.textContent = `Try starting your shift later on ${opportunityDays[0].day}s`;
+                recommendationList.appendChild(li);
+            }
+            
+            if (activeHours.length >= 2) {
+                const bestHour = activeHours[0];
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                li.textContent = `Focus your work around ${bestHour.hour}:00 when you're most productive`;
+                recommendationList.appendChild(li);
+            }
         }
 
         // Event listeners
