@@ -145,8 +145,7 @@
                                     <div class="card-body">
                                         <h5 class="card-title text-success">✓ Strengths</h5>
                                         <ul class="list-group list-group-flush" id="strength-insights">
-                                            <li class="list-group-item">Your Thursday performance is 43% above average</li>
-                                            <li class="list-group-item">You're most effective from 2-4pm</li>
+                                            <!-- Dynamic content will be inserted here by JavaScript -->
                                         </ul>
                                     </div>
                                 </div>
@@ -156,8 +155,7 @@
                                     <div class="card-body">
                                         <h5 class="card-title text-danger">⚠ Opportunities</h5>
                                         <ul class="list-group list-group-flush" id="opportunity-insights">
-                                            <li class="list-group-item">Monday productivity is 27% below your average</li>
-                                            <li class="list-group-item">Morning hours show lower conversion rates</li>
+                                            <!-- Dynamic content will be inserted here by JavaScript -->
                                         </ul>
                                     </div>
                                 </div>
@@ -167,8 +165,7 @@
                                     <div class="card-body">
                                         <h5 class="card-title text-info">💡 Recommendations</h5>
                                         <ul class="list-group list-group-flush" id="recommendations">
-                                            <li class="list-group-item">Try starting your shift at 1pm on Mondays</li>
-                                            <li class="list-group-item">Schedule more time for Thursdays when you perform best</li>
+                                            <!-- Dynamic content will be inserted here by JavaScript -->
                                         </ul>
                                     </div>
                                 </div>
@@ -338,8 +335,11 @@
                     seconds = 0;
                     updateTimerDisplay();
                     
-                    // Refresh stats
-                    loadStats();
+                    // Refresh stats and explicitly log that we're updating insights
+                    console.log("Shift ended, updating stats and insights");
+                    await loadStats(); // Make sure to await this
+                    console.log("Stats and insights should now be updated");
+                    
                 } else {
                     alert(`Failed to end shift: ${data.error}`);
                 }
@@ -764,8 +764,18 @@
 
         // Add this function after calculateStreakData
         function generateSmartInsights(shifts) {
+            console.log("Generating smart insights with", shifts.length, "shifts");
+            
             if (!shifts || shifts.length < 3) {
-                return; // Not enough data for meaningful insights
+                console.log("Not enough shifts for insights, need at least 3");
+                // Add placeholder message for insufficient data
+                document.getElementById('strength-insights').innerHTML = 
+                    '<li class="list-group-item">Need at least 3 shifts to generate insights</li>';
+                document.getElementById('opportunity-insights').innerHTML = 
+                    '<li class="list-group-item">Complete more shifts to see patterns</li>';
+                document.getElementById('recommendations').innerHTML = 
+                    '<li class="list-group-item">Recommendations will appear after more data</li>';
+                return;
             }
             
             // Clear existing insights
