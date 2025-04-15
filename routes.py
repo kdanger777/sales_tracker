@@ -1,6 +1,7 @@
 from flask import render_template, request, jsonify
 from datetime import datetime, timezone
 from models import db, Shift, Lead
+from sqlalchemy import inspect, text
 
 def init_routes(app):
     @app.route('/')
@@ -149,3 +150,22 @@ def init_routes(app):
                 "leads": leads_data
             }
         })
+
+    @app.route('/admin/db')
+    def view_database():
+        inspector = inspect(db.engine)
+        tables = {}
+        
+        for table_name in inspector.get_table_names():
+            # Get table content
+            result = db.session.execute(text(f'SELECT * FROM {table_name}')).fetchall()
+            
+            # Get column names
+            columns = [column['name'] for column in inspector.get_columns(table_name)]
+            
+            tables[table_name] = {
+                'columns': columns,
+                'rows': result
+            }
+            
+        return render_template('database.html', tables=tables)
