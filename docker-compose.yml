@@ -4,10 +4,14 @@ services:
   web:
     build: .
     ports:
-      - "8000:5000"
+      - "8000:7000"
+      - "5678:5678"  # Python debugger port
     volumes:
       - ./data:/app/data
+      - .:/app  # Mount the entire application for live code changes
     environment:
       - FLASK_APP=app.py
-      - FLASK_DEBUG=0
+      - FLASK_DEBUG=1  # Enable Flask debug mode
+      - PYTHONDONTWRITEBYTECODE=1  # Don't write .pyc files
+      - PYTHONUNBUFFERED=1  # Don't buffer Python output
     restart: always

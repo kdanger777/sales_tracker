@@ -1,5 +1,5 @@
 # For more information, please refer to https://aka.ms/vscode-docker-python
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 EXPOSE 5000
 
@@ -19,8 +19,10 @@ ENV PYTHONUNBUFFERED=1
 RUN pip install --no-cache-dir setuptools wheel
 
 # Install pip requirements
-COPY requirements.txt .
+COPY requirements.txt . 
 RUN pip install --no-cache-dir -r requirements.txt
+
+RUN pip install debugpy
 
 WORKDIR /app
 COPY . /app
