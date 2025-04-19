@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from faker import Faker
 from app import create_app
 from models import db, Shift, Lead
+from sqlalchemy import text
 
 fake = Faker()
 
@@ -12,8 +13,8 @@ def seed_data():
     
     with app.app_context():
         # Clear existing data from the tables (adjust as needed for your DB)
-        db.session.execute("DELETE FROM lead")
-        db.session.execute("DELETE FROM shift")
+        db.session.execute(text("DELETE FROM lead"))
+        db.session.execute(text("DELETE FROM shift"))
         db.session.commit()
         
         print("Creating fake completed shifts with leads...")
