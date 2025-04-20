@@ -15,6 +15,47 @@
             font-size: 2.5rem;
             text-align: center;
         }
+        .status-container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .status-item {
+            flex: 1;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            margin: 0 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status-item h3 {
+            margin-top: 0;
+            font-size: 1.2rem;
+            color: #495057;
+        }
+        .progress-bar-container {
+            height: 25px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background-color: #28a745;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        .progress-bar-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #212529;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -52,6 +93,32 @@
             </div>
         </div>
         
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Daily Goal Progress</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="progress-bar-container">
+                            <div class="progress-bar-fill" id="daily-progress-bar-fill" style="width: 0%;"></div>
+                            <span class="progress-bar-text" id="daily-progress-text">0/15 Leads (0%)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Current Pace</h3>
+                    </div>
+                    <div class="card-body text-center">
+                        <h2><span id="current-pace">N/A</span></h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="row mt-4">
             <div class="col-md-12">
                 <div class="card">
@@ -409,6 +476,35 @@
                 
                 // Improved average time display
                 document.getElementById('avg-time').textContent = formatTimeDisplay(data.avg_time_per_lead);
+                
+                // When no active shift, still update the daily goal progress with today's leads
+                if (!activeShiftId && data.shifts) {
+                    // Calculate today's leads for daily goal progress
+                    const today = new Date().toDateString();
+                    const todayLeads = data.shifts
+                        .filter(s => new Date(s.start_time).toDateString() === today)
+                        .reduce((sum, s) => sum + s.lead_count, 0);
+                    
+                    // Update daily goal with today's total (not just active shift)
+                    updateDailyGoalProgress(todayLeads);
+                    
+                    // Update the current pace with today's average
+                    if (todayLeads > 0) {
+                        const todayShifts = data.shifts.filter(s => 
+                            new Date(s.start_time).toDateString() === today);
+                        const todayDuration = todayShifts.reduce((sum, s) => 
+                            sum + (s.duration || 0), 0);
+                        
+                        if (todayDuration > 0) {
+                            // Show today's average pace instead of N/A
+                            const paceElement = document.getElementById('current-pace');
+                            if (paceElement) {
+                                const pace = (todayLeads / (todayDuration / 3600));
+                                paceElement.textContent = `${pace.toFixed(1)} leads/hr (Today's Avg)`;
+                            }
+                        }
+                    }
+                }
                 
                 // Create time distribution chart
                 createTimeChart(data.time_distribution);
@@ -927,6 +1023,166 @@
         document.addEventListener('DOMContentLoaded', function() {
             checkActiveShift();
             loadStats();
+        });
+
+        let shiftUpdateInterval = null;
+        const dailyGoal = 15; // Your defined daily goal
+
+        // Function to fetch active shift data and update relevant UI elements
+        async function updateActiveShiftDisplay() {
+            try {
+                const response = await fetch('/api/shift/active'); // Endpoint for active shift data
+
+                // Check if shift is active
+                if (!response.ok || response.status === 404) {
+                    // No active shift or error fetching
+                    if (shiftUpdateInterval) {
+                        clearInterval(shiftUpdateInterval); // Stop interval if running
+                        shiftUpdateInterval = null;
+                        console.log("Active shift ended or not found. Stopping updates.");
+                    }
+                    
+                    // Don't reset displays to empty - just stop updating them
+                    // Instead, we'll load the stats to show historical/cumulative data
+                    loadStats(); // Load stats to show historical data instead
+                    return;
+                }
+
+                const data = await response.json();
+                const shiftData = data.active_shift;
+
+                if (shiftData) {
+                    const currentLeads = shiftData.leads.length;
+                    const elapsedSeconds = shiftData.elapsed_seconds;
+
+                    // Update the Daily Goal Progress Bar/Gauge
+                    updateDailyGoalProgress(currentLeads);
+
+                    // Update the Current Pace Display
+                    updatePaceDisplay(currentLeads, elapsedSeconds);
+
+                    // Start the interval ONLY if it's not already running
+                    if (!shiftUpdateInterval) {
+                         shiftUpdateInterval = setInterval(updateActiveShiftDisplay, 30000); 
+                         console.log("Active shift detected. Starting periodic updates.");
+                    }
+                } else {
+                     // Response OK, but no active shift data in JSON
+                     if (shiftUpdateInterval) {
+                        clearInterval(shiftUpdateInterval);
+                        shiftUpdateInterval = null;
+                    }
+                    console.log("API OK, but no active shift data found.");
+                    
+                    // Don't reset displays to empty - load historical data instead
+                    loadStats();
+                }
+
+            } catch (error) {
+                console.error('Error fetching or processing active shift data:', error);
+                if (shiftUpdateInterval) {
+                    clearInterval(shiftUpdateInterval); // Stop updates on error
+                    shiftUpdateInterval = null;
+                }
+                
+                // Don't show error state, fallback to stats instead
+                loadStats();
+            }
+        }
+
+        // Helper function to update the daily goal progress UI elements
+        function updateDailyGoalProgress(currentLeads) {
+            const percentage = Math.min((currentLeads / dailyGoal) * 100, 100);
+            // Use the correct IDs for your progress bar elements
+            const progressBarFill = document.getElementById('daily-progress-bar-fill');
+            const progressText = document.getElementById('daily-progress-text');
+
+            if (progressBarFill) {
+                progressBarFill.style.width = `${percentage}%`;
+            }
+            if (progressText) {
+                progressText.textContent = `${currentLeads}/${dailyGoal} Leads (${percentage.toFixed(0)}%)`;
+            }
+            // If using a Plotly gauge, update it here instead
+            // Plotly.restyle('your-gauge-id', 'value', [percentage]);
+        }
+
+        // Helper function to update the pace display UI element
+        function updatePaceDisplay(currentLeads, elapsedSeconds) {
+            // Use the correct ID for your pace display element
+            const paceElement = document.getElementById('current-pace');
+            if (!paceElement) return; // Exit if element doesn't exist
+
+            let paceText = 'N/A'; // Default text
+            // Only calculate pace if some time has passed to avoid division by zero/infinity
+            if (elapsedSeconds > 5) {
+                const elapsedHours = elapsedSeconds / 3600;
+                const pace = (currentLeads / elapsedHours);
+                paceText = `${pace.toFixed(1)} leads/hr`;
+            } else if (currentLeads > 0) {
+                paceText = 'Calculating...'; // Shift just started
+            } else if (elapsedSeconds > 0) {
+                 paceText = '0.0 leads/hr'; // Shift started, no leads yet
+            }
+
+            paceElement.textContent = paceText;
+        }
+
+        // --- Integration ---
+
+        // 1. Initial Call on Page Load:
+        document.addEventListener('DOMContentLoaded', () => {
+            // ... other initializations like fetchStats(), checkActiveShift() etc...
+
+            // Initial setup of displays (optional, sets them to 0/N/A)
+            updateDailyGoalProgress(0); // Set initial progress display
+            updatePaceDisplay(0, 0);    // Set initial pace display
+
+            // Start checking for an active shift and begin updates if found
+            updateActiveShiftDisplay();
+        });
+
+        // 2. Clear Interval on Page Unload:
+        window.addEventListener('beforeunload', () => {
+            if (shiftUpdateInterval) {
+                clearInterval(shiftUpdateInterval);
+            }
+        });
+
+        // Note: Your existing createGaugeCharts function might still be used
+        // for other gauges or initial setup based on overall stats. Ensure it
+        // doesn't conflict with the updates driven by updateActiveShiftDisplay
+        // for the *specific* daily goal progress bar during an active shift.
+        function createGaugeCharts(data) {
+            // This function might update OTHER gauges based on overall stats (data)
+            // For the daily goal progress during an active shift,
+            // rely on updateActiveShiftDisplay and its helpers.
+
+            // Example: If you have an average leads gauge:
+            // const avgLeads = data.avg_leads_per_shift || 0;
+            // Plotly.restyle('avg-leads-gauge', 'value', [avgLeads]);
+
+            console.log("createGaugeCharts called with data:", data);
+        }
+
+        // ... rest of your script ...
+        
+        // Add at the end of your script section, replacing your existing DOMContentLoaded handler
+        document.addEventListener('DOMContentLoaded', function() {
+            // First check for active shift
+            checkActiveShift();
+            
+            // Then load stats (which updates the daily progress if no active shift)
+            loadStats();
+            
+            // Make an initial call to update the display (even if no active shift)
+            updateDailyGoalProgress(0);
+            updatePaceDisplay(0, 0);
+            
+            // Start checking for active shift updates
+            updateActiveShiftDisplay();
+            
+            console.log("Initialization complete");
         });
     </script>
 </body>
